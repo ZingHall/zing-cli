@@ -1,7 +1,7 @@
 # zing-cli
 
 CLI tool for paid semantic search and chunk retrieval on the Zing platform.
-Executes USDC micro-payments on Sui and queries the [zing-indexbind](https://github.com/anomalyco/zing-aggregator) API.
+Executes USDC micro-payments on Sui and queries the [zing-indexbind](https://github.com/ZingHall/zing-aggregator) API.
 
 ## Prerequisites
 
@@ -14,40 +14,19 @@ Executes USDC micro-payments on Sui and queries the [zing-indexbind](https://git
 
 ## Installation
 
+### Option 1: Install from GitHub
+
 ```bash
-# Clone and install
-git clone https://github.com/anomalyco/zing-cli.git
+cargo install --git https://github.com/ZingHall/zing-cli.git
+```
+
+### Option 2: Clone and build
+
+```bash
+git clone https://github.com/ZingHall/zing-cli.git
 cd zing-cli
 cargo install --path .
 ```
-
-Or install directly from GitHub:
-
-```bash
-cargo install --git https://github.com/anomalyco/zing-cli.git
-```
-
-The binary `zing` is placed in `~/.cargo/bin/` — ensure it's on your `PATH`.
-
-### Verify
-
-```bash
-zing version
-```
-
-The binary `zing` is placed in `~/.cargo/bin/` — ensure it's on your `PATH`.
-
-### Option 2: Install from private repo (team members)
-
-```bash
-# SSH (recommended — uses your GitHub SSH key)
-cargo install --git git@github.com:anomalyco/zing-aggregator.git zing-cli
-
-# HTTPS (requires GitHub token with `repo` scope)
-cargo install --git https://github.com/anomalyco/zing-aggregator.git zing-cli
-```
-
-`cargo install` fetches only the binary — no need to clone the full workspace.
 
 ### Option 3: Build in place
 
@@ -55,6 +34,8 @@ cargo install --git https://github.com/anomalyco/zing-aggregator.git zing-cli
 cargo build --release -p zing-cli
 ./target/release/zing version
 ```
+
+The binary `zing` is placed in `~/.cargo/bin/` — ensure it's on your `PATH`.
 
 ### Verify
 
