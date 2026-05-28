@@ -1,0 +1,29 @@
+[package]
+name = "zing-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "zing"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+bcs = "0.1"
+base64ct = { version = "1.6", features = ["alloc"] }
+tracing = "0.1"
+futures = "0.3"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1"
+thiserror = "2"
+sui-sdk-types = { git = "https://github.com/MystenLabs/sui-rust-sdk.git", rev = "e494a36a76a0aab8c5d66d5557995faee5c1fb09", package = "sui-sdk-types", features = ["serde"] }
+sui-crypto = { git = "https://github.com/MystenLabs/sui-rust-sdk.git", rev = "e494a36a76a0aab8c5d66d5557995faee5c1fb09", package = "sui-crypto", features = ["ed25519"] }
+sui-rpc = { git = "https://github.com/MystenLabs/sui-rust-sdk.git", rev = "e494a36a76a0aab8c5d66d5557995faee5c1fb09", package = "sui-rpc" }
+sui-transaction-builder = { git = "https://github.com/MystenLabs/sui-rust-sdk.git", rev = "e494a36a76a0aab8c5d66d5557995faee5c1fb09", package = "sui-transaction-builder", default-features = false, features = ["intents"] }
+rmcp = { version = "1", default-features = false, features = ["server", "transport-io", "macros", "schemars"] }
+schemars = "1.1"
