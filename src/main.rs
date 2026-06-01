@@ -320,11 +320,7 @@ async fn run_chunks(
     println!("Chunks: \"{}\" — {} results", q, response.chunks.len());
 
     for (i, chunk) in response.chunks.iter().enumerate() {
-        let text_preview = if chunk.text.len() > 120 {
-            format!("{}...", &chunk.text[..120])
-        } else {
-            chunk.text.clone()
-        };
+        let text_preview = &chunk.text;
 
         println!();
         println!("{}. {:<40} score: {:.2}  {} tokens", i + 1, chunk.title, chunk.scores.blended, chunk.chunk_token_count);
