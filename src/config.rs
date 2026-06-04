@@ -2,7 +2,7 @@ use serde::Deserialize;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-pub const DEFAULT_API_URL: &str = "http://localhost:3004";
+pub const DEFAULT_API_URL: &str = "https://search.zing.services";
 pub const DEFAULT_PLATFORM_USDC_ADDRESS: &str =
     "0x9b1b8ff37a5fdc77141c58ca43a4800a82d6ce91cfaceb7ae7c62c7c80458299";
 

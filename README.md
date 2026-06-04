@@ -63,7 +63,7 @@ Override the directory with the `SUI_CONFIG_DIR` environment variable.
 
 | Variable | Overrides | Default |
 |----------|-----------|---------|
-| `ZING_API_URL` | API base URL | `http://localhost:3004` |
+| `ZING_API_URL` | API base URL | `https://search.zing.services` |
 | `ZING_PLATFORM_USDC_ADDRESS` | Payment recipient | hardcoded platform address |
 | `SUI_CONFIG_DIR` | Sui config path | `~/.sui/sui_config` |
 | `--api` flag | API base URL | overrides env/fallback |

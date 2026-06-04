@@ -144,19 +144,9 @@ async fn run_client(action: ClientAction) -> anyhow::Result<()> {
 
             println!("Active address: {}", cfg.active_address);
             println!(
-                "USDC balance:      {}.{:06} USDC",
+                "USDC balance: {}.{:06} USDC",
                 total / 1_000_000,
                 total % 1_000_000
-            );
-            println!(
-                "  Address balance: {}.{:06}",
-                addr_bal / 1_000_000,
-                addr_bal % 1_000_000
-            );
-            println!(
-                "  Coin balance:    {}.{:06}",
-                coin_bal / 1_000_000,
-                coin_bal % 1_000_000
             );
         }
     }
