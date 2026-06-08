@@ -30,6 +30,15 @@ struct ChunkParams {
     owner: Option<String>,
     #[serde(default)]
     limit: Option<u32>,
+    #[serde(default)]
+    expand: Option<bool>,
+}
+
+#[derive(JsonSchema, Deserialize)]
+#[allow(dead_code)]
+struct ExpandParams {
+    /// Chunk IDs to expand (max 20)
+    chunk_ids: Vec<u64>,
 }
 
 #[allow(dead_code)]
@@ -44,10 +53,10 @@ pub struct ZingMcpServer {
 
 #[tool_router(router = tool_router)]
 impl ZingMcpServer {
-    pub async fn new() -> anyhow::Result<Self> {
+    pub async fn new(api_override: Option<String>) -> anyhow::Result<Self> {
         let cfg = config::load_config()?;
         let rpc_url = cfg.rpc_url;
-        let api_base_url = cfg.api_base_url;
+        let api_base_url = api_override.unwrap_or(cfg.api_base_url);
         let sender = cfg.active_address;
         let platform_usdc_address = cfg.platform_usdc_address;
 
@@ -153,13 +162,18 @@ impl ZingMcpServer {
         The query parameter must be a compact, 2-4 word keyword string targeting specific technical concepts, metrics, \
         or entities (e.g., instead of 'how does the 1-3 month realized price behave during a market bottom', \
         query '1-3m_RP market bottom'). Short, exact phrasing prevents vector dilution and guarantees \
-        the highest similarity scores against raw document chunks."
+        the highest similarity scores against raw document chunks. \
+        RESULTS may contain truncated chunks — check the 'truncated' field on each result. \
+        When table_rows_shown < table_rows_total, code_lines_shown < code_lines_total, or \
+        prose_chars_shown < prose_chars_total, call zing_expand_chunks with those chunk_ids to get the full content. \
+        Alternatively, set expand=true to return full untruncated text in the initial response (no extra cost). \
+        Use limit=20 for broad exploratory queries to avoid missing relevant results."
     )]
     async fn zing_chunks(
         &self,
         Parameters(params): Parameters<ChunkParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        tracing::info!("MCP zing_chunks q={}", params.q);
+        tracing::info!("MCP zing_chunks q={} expand={:?}", params.q, params.expand);
 
         let wiki = "global".to_string();
         let owner_param = params.owner.as_deref();
@@ -175,6 +189,7 @@ impl ZingMcpServer {
             &wiki,
             owner_param,
             limit,
+            params.expand,
         )
         .await
         .map_err(|e| {
@@ -193,10 +208,71 @@ impl ZingMcpServer {
                 score: c.scores.blended,
                 chunk_token_count: c.chunk_token_count,
                 heading_path: c.heading_path.clone(),
+                content_type: c.content_type.clone(),
+                language: c.language.clone(),
+                truncated: c.truncated.clone(),
             })
             .collect();
 
         let agent_response = models::AgentChunksResponse {
+            chunks: agent_chunks,
+            budget: models::AgentBudget {
+                paid_usdc: response.budget.paid_usdc,
+                consumed_usdc: response.budget.consumed_usdc,
+                remaining_usdc: response.budget.remaining_usdc,
+            },
+        };
+
+        Ok(CallToolResult::structured(
+            serde_json::to_value(&agent_response)
+                .map_err(|e| ErrorData::internal_error(e.to_string(), None))?,
+        ))
+    }
+
+    #[tool(
+        description = "Expand truncated text or code snippets into their full content. \
+        Use this whenever a search or chunk result contains a non-null 'truncated' field where structural metrics show missing data \
+        (e.g., when 'code_lines_total' is greater than 'code_lines_shown', 'table_rows_total' is greater than 'table_rows_shown', \
+        or 'prose_chars_total' is greater than 'prose_chars_shown'). Pass the chunk_ids directly to retrieve the complete text block. \
+        Max 20 chunk IDs per call. Avoid batching unless multiple blocks are explicitly truncated and relevant."
+    )]
+    async fn zing_expand_chunks(
+        &self,
+        Parameters(params): Parameters<ExpandParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        tracing::info!("MCP zing_expand_chunks chunk_ids={:?}", params.chunk_ids);
+
+        let chunk_ids_i64: Vec<i64> = params.chunk_ids.iter().map(|&id| id as i64).collect();
+
+        let response = api::expand_chunks(
+            &self.rpc_url,
+            &self.api_base_url,
+            &self.keypair,
+            &self.sender,
+            &self.platform_usdc_address,
+            &chunk_ids_i64,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("expand_chunks failed: {e}");
+            ErrorData::internal_error(e.to_string(), None)
+        })?;
+
+        let agent_chunks: Vec<models::AgentExpandedChunk> = response
+            .chunks
+            .iter()
+            .map(|c| models::AgentExpandedChunk {
+                chunk_id: c.chunk_id,
+                article_id: c.article_id.clone(),
+                heading_path: c.heading_path.clone(),
+                chunk_text: c.chunk_text.clone(),
+                content_type: c.content_type.clone(),
+                token_count: c.token_count,
+                truncated: c.truncated.clone(),
+            })
+            .collect();
+
+        let agent_response = models::AgentExpandResponse {
             chunks: agent_chunks,
             budget: models::AgentBudget {
                 paid_usdc: response.budget.paid_usdc,
@@ -220,7 +296,8 @@ impl rmcp::ServerHandler for ZingMcpServer {
             .build();
         rmcp::model::InitializeResult::new(capabilities).with_instructions(
             "Search the Zing decentralized knowledge base. \
-             Use zing_search to find articles and zing_chunks to retrieve semantic chunks.",
+             Use zing_search to find articles, zing_chunks to retrieve semantic chunks, \
+             and zing_expand_chunks to get full untruncated text for truncated chunks.",
         )
     }
 }

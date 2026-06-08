@@ -55,6 +55,23 @@ enum Command {
         /// Max results (default: 20, max: 50)
         #[arg(long, default_value = "20")]
         limit: u32,
+        /// Return full untruncated text (no truncation)
+        #[arg(long)]
+        expand: bool,
+        /// Override API base URL
+        #[arg(long)]
+        api: Option<String>,
+        /// Override Sui RPC URL
+        #[arg(long)]
+        rpc: Option<String>,
+        /// Output as JSON for agent consumption
+        #[arg(long)]
+        json: bool,
+    },
+    /// Expand truncated chunks — get full untruncated text
+    Expand {
+        /// Chunk IDs to expand (max 20)
+        chunk_ids: Vec<u64>,
         /// Override API base URL
         #[arg(long)]
         api: Option<String>,
@@ -88,7 +105,11 @@ enum ClientAction {
 #[derive(Subcommand)]
 enum McpAction {
     /// Start the MCP server on stdio
-    Serve,
+    Serve {
+        /// Override API base URL
+        #[arg(long)]
+        api: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -110,21 +131,124 @@ async fn main() -> anyhow::Result<()> {
         Command::Search { q, owner, limit, api, rpc, json } => {
             run_search(q, owner, limit, api, rpc, json).await?;
         }
-        Command::Chunks { q, owner, limit, api, rpc, json } => {
-            run_chunks(q, owner, limit, api, rpc, json).await?;
+        Command::Chunks { q, owner, limit, expand, api, rpc, json } => {
+            run_chunks(q, owner, limit, expand, api, rpc, json).await?;
+        }
+        Command::Expand { chunk_ids, api, rpc, json } => {
+            run_expand(chunk_ids, api, rpc, json).await?;
         }
         Command::Client { action } => {
             run_client(action).await?;
         }
         Command::Mcp { action } => {
             match action {
-                McpAction::Serve => {
-                    let server = mcp::ZingMcpServer::new().await?;
+                McpAction::Serve { api } => {
+                    let server = mcp::ZingMcpServer::new(api).await?;
                     server.serve().await?;
                 }
             }
         }
     }
+
+    Ok(())
+}
+
+async fn run_expand(
+    chunk_ids: Vec<u64>,
+    api_override: Option<String>,
+    rpc_override: Option<String>,
+    json: bool,
+) -> anyhow::Result<()> {
+    let cfg = config::load_config()?;
+    let rpc_url = rpc_override.unwrap_or(cfg.rpc_url);
+    let api_base_url = api_override.unwrap_or(cfg.api_base_url);
+
+    // Convert Vec<u64> to Vec<i64> (BCS expects i64 in ExpandAccessMessage)
+    let chunk_ids_i64: Vec<i64> = chunk_ids.iter().map(|&id| id as i64).collect();
+
+    let sui_config_dir = std::env::var("SUI_CONFIG_DIR")
+        .unwrap_or_else(|_| format!("{}/.sui/sui_config", std::env::var("HOME").unwrap()));
+    let keystore_path = Path::new(&sui_config_dir).join("sui.keystore");
+    let keypair = keystore::load_keypair(&keystore_path, &cfg.active_address)?;
+
+    let response = api::expand_chunks(
+        &rpc_url,
+        &api_base_url,
+        &keypair,
+        &cfg.active_address,
+        &cfg.platform_usdc_address,
+        &chunk_ids_i64,
+    )
+    .await?;
+
+    if json {
+        let agent_chunks: Vec<models::AgentExpandedChunk> = response.chunks.iter().map(|c| {
+            models::AgentExpandedChunk {
+                chunk_id: c.chunk_id,
+                article_id: c.article_id.clone(),
+                heading_path: c.heading_path.clone(),
+                chunk_text: c.chunk_text.clone(),
+                content_type: c.content_type.clone(),
+                token_count: c.token_count,
+                truncated: c.truncated.clone(),
+            }
+        }).collect();
+
+        let agent_response = models::AgentExpandResponse {
+            chunks: agent_chunks,
+            budget: models::AgentBudget {
+                paid_usdc: response.budget.paid_usdc,
+                consumed_usdc: response.budget.consumed_usdc,
+                remaining_usdc: response.budget.remaining_usdc,
+            },
+        };
+
+        println!("{}", serde_json::to_string_pretty(&agent_response)?);
+        return Ok(());
+    }
+
+    println!("Expand: {} chunks returned", response.chunks.len());
+
+    for (i, chunk) in response.chunks.iter().enumerate() {
+        println!();
+        println!("{}. Chunk {} — {} ({} tokens)", i + 1, chunk.chunk_id, chunk.content_type, chunk.token_count);
+        if !chunk.heading_path.is_empty() {
+            println!("   heading: {}", chunk.heading_path.join(" > "));
+        }
+        println!("   article: {}", chunk.article_id);
+        println!("   text:");
+        for line in chunk.chunk_text.lines() {
+            println!("   {}", line);
+        }
+        if let Some(ref t) = chunk.truncated {
+            match t.content_type.as_str() {
+                "table" => {
+                    if let (Some(total), Some(shown)) = (t.table_rows_total, t.table_rows_shown) {
+                        println!("   (table: {} total rows, {} shown)", total, shown);
+                    }
+                }
+                "code" => {
+                    if let (Some(total), Some(shown)) = (t.code_lines_total, t.code_lines_shown) {
+                        println!("   (code: {} total lines, {} shown)", total, shown);
+                    }
+                }
+                "prose" => {
+                    if let (Some(total), Some(shown)) = (t.prose_chars_total, t.prose_chars_shown) {
+                        println!("   (prose: {} total chars, {} shown)", total, shown);
+                    }
+                }
+                _ => {}
+            }
+        } else {
+            println!("   (full text)");
+        }
+    }
+    println!(
+        "\nBudget: paid={}, consumed={}, remaining={}",
+        response.budget.paid_usdc,
+        response.budget.consumed_usdc,
+        response.budget.remaining_usdc,
+    );
 
     Ok(())
 }
@@ -252,6 +376,7 @@ async fn run_chunks(
     q: String,
     owner: Option<String>,
     limit: u32,
+    expand: bool,
     api_override: Option<String>,
     rpc_override: Option<String>,
     json: bool,
@@ -278,6 +403,7 @@ async fn run_chunks(
         &wiki,
         owner_param,
         limit.min(50),
+        if expand { Some(true) } else { None },
     )
     .await?;
 
@@ -291,6 +417,9 @@ async fn run_chunks(
                 score: c.scores.blended,
                 chunk_token_count: c.chunk_token_count,
                 heading_path: c.heading_path.clone(),
+                content_type: c.content_type.clone(),
+                language: c.language.clone(),
+                truncated: c.truncated.clone(),
             }
         }).collect();
 

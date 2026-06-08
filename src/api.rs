@@ -11,6 +11,7 @@ fn sign_access_message(
     q: &str,
     wiki: &str,
     transaction_digest: &str,
+    expand: Option<bool>,
 ) -> anyhow::Result<(String, String)> {
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -22,6 +23,7 @@ fn sign_access_message(
         wiki: wiki.to_string(),
         transaction_digest: transaction_digest.to_string(),
         timestamp,
+        expand,
     };
 
     let bcs_bytes = bcs::to_bytes(&msg)?;
@@ -51,13 +53,14 @@ pub async fn search(
 ) -> anyhow::Result<SearchResponse> {
     let tx_digest = crate::sui::send_payment(rpc_url, keypair, sender, platform_usdc_address).await?;
 
-    let (signature, bytes) = sign_access_message(keypair, q, wiki, &tx_digest)?;
+    let (signature, bytes) = sign_access_message(keypair, q, wiki, &tx_digest, None)?;
 
     let body = PaidRequest {
         q: q.to_string(),
         wiki: wiki.to_string(),
         owner: owner.map(|s| s.to_string()),
         limit,
+        expand: None,
         transaction_digest: tx_digest,
         signature,
         bytes,
@@ -89,16 +92,18 @@ pub async fn chunks(
     wiki: &str,
     owner: Option<&str>,
     limit: u32,
+    expand: Option<bool>,
 ) -> anyhow::Result<ChunksResponse> {
     let tx_digest = crate::sui::send_payment(rpc_url, keypair, sender, platform_usdc_address).await?;
 
-    let (signature, bytes) = sign_access_message(keypair, q, wiki, &tx_digest)?;
+    let (signature, bytes) = sign_access_message(keypair, q, wiki, &tx_digest, expand)?;
 
     let body = PaidRequest {
         q: q.to_string(),
         wiki: wiki.to_string(),
         owner: owner.map(|s| s.to_string()),
         limit,
+        expand,
         transaction_digest: tx_digest,
         signature,
         bytes,
@@ -116,4 +121,68 @@ pub async fn chunks(
 
     let chunks_resp: ChunksResponse = resp.json().await?;
     Ok(chunks_resp)
+}
+
+/// Sign the BCS-encoded ExpandAccessMessage as a PersonalMessage.
+/// Returns (signature_base64, bytes_base64).
+fn sign_expand_message(
+    keypair: &Ed25519PrivateKey,
+    chunk_ids: &[i64],
+    transaction_digest: &str,
+) -> anyhow::Result<(String, String)> {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+
+    let msg = ExpandAccessMessage {
+        chunk_ids: chunk_ids.to_vec(),
+        transaction_digest: transaction_digest.to_string(),
+        timestamp,
+    };
+
+    let bcs_bytes = bcs::to_bytes(&msg)?;
+    let bytes_b64 = Base64::encode_string(&bcs_bytes);
+
+    let signature = keypair
+        .sign_personal_message(&PersonalMessage(bcs_bytes.clone().into()))
+        .map_err(|e| anyhow::anyhow!("Signing ExpandAccessMessage failed: {e}"))?;
+
+    let sig_b64 = signature.to_base64();
+
+    Ok((sig_b64, bytes_b64))
+}
+
+/// POST to the chunk/expand endpoint. Returns the full untruncated text for given chunks.
+pub async fn expand_chunks(
+    rpc_url: &str,
+    api_base_url: &str,
+    keypair: &Ed25519PrivateKey,
+    sender: &Address,
+    platform_usdc_address: &Address,
+    chunk_ids: &[i64],
+) -> anyhow::Result<ExpandResponse> {
+    let tx_digest = crate::sui::send_payment(rpc_url, keypair, sender, platform_usdc_address).await?;
+
+    let (signature, bytes) = sign_expand_message(keypair, chunk_ids, &tx_digest)?;
+
+    let body = ExpandRequest {
+        chunk_ids: chunk_ids.to_vec(),
+        transaction_digest: tx_digest,
+        signature,
+        bytes,
+    };
+
+    let client = reqwest::Client::new();
+    let url = format!("{}/chunk/expand", api_base_url.trim_end_matches('/'));
+    let resp = client.post(&url).json(&body).send().await?;
+
+    let status = resp.status();
+    if !status.is_success() {
+        let body_text = resp.text().await.unwrap_or_default();
+        anyhow::bail!("API error ({}): {}", status.as_u16(), body_text);
+    }
+
+    let expand_resp: ExpandResponse = resp.json().await?;
+    Ok(expand_resp)
 }

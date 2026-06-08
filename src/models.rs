@@ -10,6 +10,8 @@ pub struct PaidRequest {
     pub wiki: String,
     pub owner: Option<String>,
     pub limit: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expand: Option<bool>,
     pub transaction_digest: String,
     pub signature: String,
     pub bytes: String,
@@ -82,6 +84,9 @@ pub struct ChunkPreview {
     pub chunk_token_count: u32,
     pub scores: ChunkScores,
     pub text: String,
+    pub content_type: String,
+    pub language: Option<String>,
+    pub truncated: Option<TruncatedInfo>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -119,6 +124,7 @@ pub struct ApiAccessMessage {
     pub wiki: String,
     pub transaction_digest: String,
     pub timestamp: u64,
+    pub expand: Option<bool>,
 }
 
 // ── Agent-focused output (for --json flag) ──
@@ -150,6 +156,9 @@ pub struct AgentChunkResult {
     pub score: f32,
     pub chunk_token_count: u32,
     pub heading_path: Vec<String>,
+    pub content_type: String,
+    pub language: Option<String>,
+    pub truncated: Option<TruncatedInfo>,
 }
 
 #[derive(Serialize)]
@@ -163,4 +172,79 @@ pub struct AgentBudget {
     pub paid_usdc: u64,
     pub consumed_usdc: u64,
     pub remaining_usdc: u64,
+}
+
+// ── Expand Request / Response ──
+
+/// BCS-serializable message for the expand endpoint
+#[derive(Serialize, Deserialize)]
+pub struct ExpandAccessMessage {
+    pub chunk_ids: Vec<i64>,
+    pub transaction_digest: String,
+    pub timestamp: u64,
+}
+
+#[derive(Serialize)]
+pub struct ExpandRequest {
+    pub chunk_ids: Vec<i64>,
+    pub transaction_digest: String,
+    pub signature: String,
+    pub bytes: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ExpandResponse {
+    pub chunks: Vec<ExpandedChunk>,
+    pub budget: BudgetBreakdown,
+    pub payments: Vec<PaymentLine>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ExpandedChunk {
+    pub chunk_id: u64,
+    pub article_id: String,
+    pub owner_address: String,
+    pub ordinal: u32,
+    pub heading_path: Vec<String>,
+    pub char_start: u32,
+    pub char_end: u32,
+    pub token_count: u32,
+    pub chunk_text: String,
+    pub content_type: String,
+    pub language: Option<String>,
+    pub truncated: Option<TruncatedInfo>,
+}
+
+#[derive(Clone, Deserialize, Debug, Serialize)]
+pub struct TruncatedInfo {
+    pub content_type: String,
+    #[serde(default)]
+    pub table_rows_total: Option<u32>,
+    #[serde(default)]
+    pub table_rows_shown: Option<u32>,
+    #[serde(default)]
+    pub code_lines_total: Option<u32>,
+    #[serde(default)]
+    pub code_lines_shown: Option<u32>,
+    #[serde(default)]
+    pub prose_chars_total: Option<u32>,
+    #[serde(default)]
+    pub prose_chars_shown: Option<u32>,
+}
+
+#[derive(Serialize)]
+pub struct AgentExpandedChunk {
+    pub chunk_id: u64,
+    pub article_id: String,
+    pub heading_path: Vec<String>,
+    pub chunk_text: String,
+    pub content_type: String,
+    pub token_count: u32,
+    pub truncated: Option<TruncatedInfo>,
+}
+
+#[derive(Serialize)]
+pub struct AgentExpandResponse {
+    pub chunks: Vec<AgentExpandedChunk>,
+    pub budget: AgentBudget,
 }
