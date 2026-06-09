@@ -1,3 +1,6 @@
+[workspace]
+members = ["eval"]
+
 [package]
 name = "zing-cli"
 version = "0.0.1"

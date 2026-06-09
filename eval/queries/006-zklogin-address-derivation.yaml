@@ -1,0 +1,23 @@
+id: "zklogin-address-derivation"
+endpoint: chunks
+query: "how zkLogin address is derived"
+owner: null
+limit: 20
+question_type: factual
+expected_chunks:
+  - heading_path_contains: ["Address definition"]
+    text_contains_any: ["sub", "iss", "aud", "user_salt"]
+    min_blended_score: 0.25
+    max_rank: 15
+not_expected:
+  - heading_contains: "Cost Formula"
+    text_contains: "flat_fee"
+  - heading_contains: "Paid Search"
+    text_contains: "transaction_digest"
+ground_truth_answer: >
+  A zkLogin Sui address is derived by computing zk_login_address =
+  Blake2b_256(zk_login_flag, iss_L, iss, addr_seed) where addr_seed =
+  Poseidon_BN254(kc_name_F, kc_value_F, aud_F, Poseidon_BN254(user_salt)).
+  The inputs are the key claim name (sub), key claim value, audience (aud),
+  issuer (iss), and user salt. The address flag 0x05 serves as a domain separator.
+eval_note: "Verify that sub, iss, aud, and user_salt are all mentioned as derivation inputs. API payment/cost content should not appear."

@@ -1,0 +1,16 @@
+id: "zklogin-nonce-generation"
+endpoint: chunks
+query: "how to generate nonce for zkLogin"
+owner: null
+limit: 20
+question_type: procedural
+expected_chunks:
+  - heading_path_contains: ["Ephemeral key pair"]
+    text_contains_any: ["generateNonce", "maxEpoch", "nonce"]
+    min_blended_score: 0.3
+ground_truth_answer: >
+  The nonce is generated using generateNonce() from @mysten/sui/zklogin,
+  which takes the ephemeral public key, maxEpoch (current epoch + N),
+  and cryptographic randomness as inputs. The nonce is embedded in the
+  OAuth authorization URL and binds the ephemeral key to the JWT session.
+eval_note: "Confirm results show the generateNonce TypeScript function and its three inputs (ephemeral pubkey, maxEpoch, randomness). Salt management content should not appear in top-5."

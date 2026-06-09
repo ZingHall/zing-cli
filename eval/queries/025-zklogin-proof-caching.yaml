@@ -1,0 +1,22 @@
+id: "zklogin-proof-caching"
+endpoint: chunks
+query: "zkLogin proof caching session reuse"
+owner: null
+limit: 20
+question_type: factual
+expected_chunks:
+  - heading_path_contains: ["Caching the ephemeral"]
+    text_contains_any: ["cache", "expires", "session storage"]
+    min_blended_score: 0.3
+not_expected:
+  - heading_contains: "Cost Formula"
+    text_contains: "consumed_usdc"
+  - heading_contains: "Paid Chunk"
+    text_contains: "chunk_id"
+ground_truth_answer: >
+  ZK proofs are tied to an ephemeral key pair and can be reused for any
+  number of transactions until the ephemeral key expires (maxEpoch).
+  The ephemeral key pair and ZK proof should be cached in session storage
+  (not local storage) since session storage auto-clears. If the ephemeral
+  private key AND ZK proof are both leaked, an attacker can sign transactions.
+eval_note: "Check for proof caching behavior, ephemeral key expiration, session vs local storage distinction. API chunk/cost content should not appear."

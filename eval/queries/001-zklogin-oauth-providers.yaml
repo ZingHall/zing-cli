@@ -1,0 +1,22 @@
+id: "zklogin-oauth-providers"
+endpoint: chunks
+query: "Sui zkLogin OAuth providers"
+owner: null
+limit: 20
+question_type: factual
+expected_chunks:
+  - heading_path_contains: ["OpenID provider"]
+    text_contains_any: ["Google", "Facebook", "Twitch", "Apple", "Slack", "Kakao", "Microsoft"]
+    min_blended_score: 0.3
+    max_rank: 15
+not_expected:
+  - heading_contains: "Gas"
+    text_contains: "gas budget"
+  - heading_contains: "Cost Formula"
+    text_contains: "platform_fee_usdc"
+ground_truth_answer: >
+  Sui zkLogin supports OpenID Connect providers including Google, Facebook,
+  Twitch, Apple, Slack, Kakao, Microsoft, and AWS (per-tenant) across
+  different Sui networks (Devnet, Testnet, Mainnet). Additional providers
+  like Karrier One and Credenza3 are also supported.
+eval_note: "Verify results list at least 5 provider names from the OpenID providers table. Gas fee or API payment content should not appear in top results."

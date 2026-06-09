@@ -1,0 +1,20 @@
+id: "zklogin-prover-setup"
+endpoint: chunks
+query: "how to run zkLogin proving service"
+owner: null
+limit: 20
+question_type: procedural
+expected_chunks:
+  - heading_path_contains: ["Run the proving service"]
+    text_contains_any: ["docker", "mysten/zklogin", "prover-stable"]
+    min_blended_score: 0.3
+  - heading_path_contains: ["Get the zero-knowledge"]
+    text_contains_any: ["PROVER_URI", "zkey", "prover-fe"]
+    min_blended_score: 0.3
+ground_truth_answer: >
+  The zkLogin proving service runs via Docker with two images:
+  mysten/zklogin:prover-stable (backend, 16+ cores, 16GB RAM) and
+  mysten/zklogin:prover-fe-stable (frontend). Requires downloading the
+  Groth16 zkey file and launching via docker compose with the zkey path.
+  Exposes /ping and /v1 endpoints for proof generation.
+eval_note: "Confirm Docker-based setup with mysten/zklogin images and zkey file download. Salt management content should not appear in top results."

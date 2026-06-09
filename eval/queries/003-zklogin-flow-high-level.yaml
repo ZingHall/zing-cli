@@ -1,0 +1,22 @@
+id: "zklogin-flow-high-level"
+endpoint: chunks
+query: "zkLogin flow steps"
+owner: null
+limit: 20
+question_type: procedural
+expected_chunks:
+  - heading_path_contains: ["How zkLogin works"]
+    text_contains_any: ["ephemeral key", "JWT", "zero-knowledge proof"]
+    min_blended_score: 0.3
+not_expected:
+  - heading_contains: "Cost Formula"
+    text_contains: "flat_fee"
+  - heading_contains: "Paid Search"
+    text_contains: "transaction_digest"
+ground_truth_answer: >
+  zkLogin works by: (1) generating an ephemeral key pair and embedding
+  its public key in an OAuth nonce, (2) obtaining a JWT from the OAuth
+  provider after login, (3) generating a Groth16 ZK proof from the JWT,
+  (4) deriving the Sui address from sub/iss/aud/user_salt, and (5) signing
+  transactions with the ephemeral private key and submitting with the ZK proof.
+eval_note: "Check that the high-level flow mentions ephemeral key generation, JWT acquisition, ZK proof creation, and address derivation. API payment/cost content should not appear."

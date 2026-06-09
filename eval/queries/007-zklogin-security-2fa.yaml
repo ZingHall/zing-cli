@@ -1,0 +1,22 @@
+id: "zklogin-security-2fa"
+endpoint: chunks
+query: "zkLogin security model 2FA"
+owner: null
+limit: 20
+question_type: conceptual
+expected_chunks:
+  - heading_path_contains: ["FAQ"]
+    text_contains_any: ["2-of-2", "2FA"]
+    min_blended_score: 0.3
+not_expected:
+  - heading_contains: "Cost Formula"
+    text_contains: "paid_usdc"
+  - heading_contains: "Scoring Formula"
+    text_contains: "rrf_k"
+ground_truth_answer: >
+  zkLogin functions as a 2-of-2 multisig where the two credentials are
+  the OAuth login and the user salt. A compromised OAuth account alone
+  cannot access funds without the salt. The ephemeral private key, ZK proof,
+  and JWT each have distinct security properties — compromising any single
+  artifact (except ephemeral key + proof together) does not enable theft.
+eval_note: "Check that 2-of-2 multisig and two-factor authentication concepts are explained. API scoring/cost content should not appear."

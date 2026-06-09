@@ -1,0 +1,16 @@
+id: "zklogin-salt-management"
+endpoint: chunks
+query: "zkLogin user salt management"
+owner: null
+limit: 20
+question_type: factual
+expected_chunks:
+  - heading_path_contains: ["User salt management"]
+    text_contains_any: ["16-byte", "user_salt", "HKDF"]
+    min_blended_score: 0.3
+ground_truth_answer: >
+  The user salt is a 16-byte value used to unlink the OAuth identifier from
+  the on-chain Sui address. Salt management options include: (1) client-side
+  storage, (2) user-supplied salt, (3) database mapping sub to salt, or
+  (4) a backend service using HKDF derivation with a master seed.
+eval_note: "Verify salt details including 16-byte length, user_salt field, and the 4 management options. Proving service / docker content should not appear in top results."

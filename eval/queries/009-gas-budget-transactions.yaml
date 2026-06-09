@@ -1,0 +1,20 @@
+id: "gas-budget-transactions"
+endpoint: search
+query: "how gas budget works Sui transactions"
+owner: null
+limit: 20
+question_type: factual
+expected_chunks:
+  - heading_path_contains: ["gas"]
+    text_contains_any: ["gas budget", "gas_price", "computation"]
+    min_blended_score: 0.3
+not_expected:
+  - heading_contains: "OpenID"
+    text_contains: "OAuth"
+ground_truth_answer: >
+  A Sui transaction's gas budget sets an upper limit on computation cost.
+  The budget is compared to the product of gas units consumed and the
+  reference gas price. If execution exceeds the budget the transaction
+  aborts, though a partial gas charge may still apply. SUI is used to pay
+  for gas through the gas coin.
+eval_note: "Check that gas_budget semantics include upper-limit behavior and abort-on-exceed. zkLogin/OAuth content should not appear."
