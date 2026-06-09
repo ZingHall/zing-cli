@@ -17,7 +17,7 @@ Executes USDC micro-payments on Sui and queries the [zing-indexbind](https://git
 ### Option 1: Install from GitHub
 
 ```bash
-cargo install --git https://github.com/ZingHall/zing-cli.git
+cargo install --git https://github.com/ZingHall/zing-cli.git zing-cli
 ```
 
 ### Option 2: Clone and build
@@ -25,7 +25,7 @@ cargo install --git https://github.com/ZingHall/zing-cli.git
 ```bash
 git clone https://github.com/ZingHall/zing-cli.git
 cd zing-cli
-cargo install --path .
+cargo install --path . --bin zing
 ```
 
 ### Option 3: Build in place
@@ -201,16 +201,26 @@ Budget: paid=10000, consumed=1250, remaining=8750
 
 ```
 zing-cli/
-  Cargo.toml
+  Cargo.toml        — workspace root (zing-cli + zing-eval)
   README.md
   src/
-    main.rs        — CLI entry: clap subcommands, output formatting
-    lib.rs         — module declarations
-    config.rs      — reads Sui client.yaml + env vars
-    error.rs       — typed error codes
-    keystore.rs    — loads Ed25519 keypair from sui.keystore
-    sui.rs         — USDC balance check + payment PTB builder
-    api.rs         — ApiAccessMessage signing + HTTP calls
-    models.rs      — request/response types (serde)
-    mcp.rs         — MCP server (zing_search, zing_chunks tools)
+    main.rs         — CLI entry: clap subcommands, output formatting
+    lib.rs          — module declarations
+    config.rs       — reads Sui client.yaml + env vars
+    error.rs        — typed error codes
+    keystore.rs     — loads Ed25519 keypair from sui.keystore
+    sui.rs          — USDC balance check + payment PTB builder
+    api.rs          — ApiAccessMessage signing + HTTP calls
+    models.rs       — request/response types (serde)
+    mcp.rs          — MCP server (zing_search, zing_chunks tools)
+  eval/             — zing-eval RAG evaluation framework
+    src/
+      main.rs       — eval CLI (run, list, formula)
+      checks.rs     — L1 retrieval / L2 score sanity
+      golden.rs     — YAML query loader
+      runner.rs     — API client for chunk/search estimate
+      l3_eval.rs    — LLM judge (opt-in)
+      report.rs     — JSON report writer
+      types.rs      — shared types
+    queries/        — golden query YAML definitions
 ```
