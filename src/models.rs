@@ -127,7 +127,6 @@ pub struct ApiAccessMessage {
     pub transaction_digest: String,
     pub timestamp: u64,
     pub expand: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub article_ids: Option<Vec<String>>,
 }
 
