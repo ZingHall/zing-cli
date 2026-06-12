@@ -88,7 +88,8 @@ impl ZingMcpServer {
         QUERY OPTIMIZATION RULE: Convert the user's natural language question into a short, high-density keyword string. \
         Strip out conversational filler words, dates, or vague outlook phrases (e.g., instead of searching \
         'what is the possible bitcoin market bottom prediction for late 2026', search 'Bitcoin market bottom analysis'). \
-        This ensures maximum vector precision and clean lexical ranking scores."
+        This ensures maximum vector precision and clean lexical ranking scores. \
+        Default limit is 20."
     )]
     async fn zing_search(
         &self,
@@ -167,7 +168,7 @@ impl ZingMcpServer {
         When table_rows_shown < table_rows_total, code_lines_shown < code_lines_total, or \
         prose_chars_shown < prose_chars_total, call zing_expand_chunks with those chunk_ids to get the full content. \
         Alternatively, set expand=true to return full untruncated text in the initial response (no extra cost). \
-        Use limit=20 for broad exploratory queries to avoid missing relevant results."
+        Default limit is 20."
     )]
     async fn zing_chunks(
         &self,
