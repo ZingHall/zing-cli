@@ -12,6 +12,7 @@ fn sign_access_message(
     wiki: &str,
     transaction_digest: &str,
     expand: Option<bool>,
+    article_ids: Option<Vec<String>>,
 ) -> anyhow::Result<(String, String)> {
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -24,6 +25,7 @@ fn sign_access_message(
         transaction_digest: transaction_digest.to_string(),
         timestamp,
         expand,
+        article_ids,
     };
 
     let bcs_bytes = bcs::to_bytes(&msg)?;
@@ -53,7 +55,7 @@ pub async fn search(
 ) -> anyhow::Result<SearchResponse> {
     let tx_digest = crate::sui::send_payment(rpc_url, keypair, sender, platform_usdc_address).await?;
 
-    let (signature, bytes) = sign_access_message(keypair, q, wiki, &tx_digest, None)?;
+    let (signature, bytes) = sign_access_message(keypair, q, wiki, &tx_digest, None, None)?;
 
     let body = PaidRequest {
         q: q.to_string(),
@@ -61,6 +63,7 @@ pub async fn search(
         owner: owner.map(|s| s.to_string()),
         limit,
         expand: None,
+        article_ids: None,
         transaction_digest: tx_digest,
         signature,
         bytes,
@@ -96,7 +99,7 @@ pub async fn chunks(
 ) -> anyhow::Result<ChunksResponse> {
     let tx_digest = crate::sui::send_payment(rpc_url, keypair, sender, platform_usdc_address).await?;
 
-    let (signature, bytes) = sign_access_message(keypair, q, wiki, &tx_digest, expand)?;
+    let (signature, bytes) = sign_access_message(keypair, q, wiki, &tx_digest, expand, None)?;
 
     let body = PaidRequest {
         q: q.to_string(),
@@ -104,6 +107,7 @@ pub async fn chunks(
         owner: owner.map(|s| s.to_string()),
         limit,
         expand,
+        article_ids: None,
         transaction_digest: tx_digest,
         signature,
         bytes,

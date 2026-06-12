@@ -12,6 +12,8 @@ pub struct PaidRequest {
     pub limit: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expand: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub article_ids: Option<Vec<String>>,
     pub transaction_digest: String,
     pub signature: String,
     pub bytes: String,
@@ -125,6 +127,8 @@ pub struct ApiAccessMessage {
     pub transaction_digest: String,
     pub timestamp: u64,
     pub expand: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub article_ids: Option<Vec<String>>,
 }
 
 // ── Agent-focused output (for --json flag) ──
