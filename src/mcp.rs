@@ -32,6 +32,8 @@ struct ChunkParams {
     limit: Option<u32>,
     #[serde(default)]
     expand: Option<bool>,
+    #[serde(default)]
+    article_ids: Option<Vec<String>>,
 }
 
 #[derive(JsonSchema, Deserialize)]
@@ -168,7 +170,9 @@ impl ZingMcpServer {
         When table_rows_shown < table_rows_total, code_lines_shown < code_lines_total, or \
         prose_chars_shown < prose_chars_total, call zing_expand_chunks with those chunk_ids to get the full content. \
         Alternatively, set expand=true to return full untruncated text in the initial response (no extra cost). \
-        Default limit is 20."
+        Default limit is 20. \
+        article_ids: Optional; filter to specific article IDs. When set, only chunks from these articles are returned. \
+        SQL-level filter on indexed columns."
     )]
     async fn zing_chunks(
         &self,
@@ -191,6 +195,7 @@ impl ZingMcpServer {
             owner_param,
             limit,
             params.expand,
+            params.article_ids.clone(),
         )
         .await
         .map_err(|e| {

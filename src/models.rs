@@ -104,11 +104,11 @@ pub struct ChunkScores {
 
 #[derive(Deserialize, Debug)]
 pub struct BudgetBreakdown {
-    pub paid_usdc: u64,
-    pub consumed_usdc: u64,
-    pub remaining_usdc: u64,
-    pub platform_fee_usdc: u64,
-    pub creators_fee_usdc: u64,
+    pub paid_usdc: String,
+    pub consumed_usdc: String,
+    pub remaining_usdc: String,
+    pub platform_fee_usdc: String,
+    pub creators_fee_usdc: String,
     pub items_returned: u32,
     pub items_searched: u32,
 }
@@ -116,7 +116,7 @@ pub struct BudgetBreakdown {
 #[derive(Deserialize, Debug)]
 pub struct PaymentLine {
     pub recipient: String,
-    pub amount_usdc: u64,
+    pub amount_usdc: String,
 }
 
 /// BCS-serializable message that the client signs
@@ -172,9 +172,9 @@ pub struct AgentChunksResponse {
 
 #[derive(Serialize)]
 pub struct AgentBudget {
-    pub paid_usdc: u64,
-    pub consumed_usdc: u64,
-    pub remaining_usdc: u64,
+    pub paid_usdc: String,
+    pub consumed_usdc: String,
+    pub remaining_usdc: String,
 }
 
 // ── Expand Request / Response ──

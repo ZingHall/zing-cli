@@ -96,10 +96,11 @@ pub async fn chunks(
     owner: Option<&str>,
     limit: u32,
     expand: Option<bool>,
+    article_ids: Option<Vec<String>>,
 ) -> anyhow::Result<ChunksResponse> {
     let tx_digest = crate::sui::send_payment(rpc_url, keypair, sender, platform_usdc_address).await?;
 
-    let (signature, bytes) = sign_access_message(keypair, q, wiki, &tx_digest, expand, None)?;
+    let (signature, bytes) = sign_access_message(keypair, q, wiki, &tx_digest, expand, article_ids.clone())?;
 
     let body = PaidRequest {
         q: q.to_string(),
@@ -107,7 +108,7 @@ pub async fn chunks(
         owner: owner.map(|s| s.to_string()),
         limit,
         expand,
-        article_ids: None,
+        article_ids,
         transaction_digest: tx_digest,
         signature,
         bytes,

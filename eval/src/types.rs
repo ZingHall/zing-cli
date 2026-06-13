@@ -180,12 +180,9 @@ pub struct Signals {
 #[allow(dead_code)]
 #[derive(Deserialize, Debug, Clone)]
 pub struct EstimateBudget {
-    #[serde(default)]
-    pub paid_usdc: u64,
-    #[serde(default)]
-    pub consumed_usdc: u64,
-    #[serde(default)]
-    pub remaining_usdc: u64,
+    pub paid_usdc: String,
+    pub consumed_usdc: String,
+    pub remaining_usdc: String,
 }
 
 // ── Evaluation Result Types ──
