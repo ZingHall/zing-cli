@@ -1,10 +1,17 @@
 use serde::Deserialize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 pub const DEFAULT_API_URL: &str = "https://search.zing.services";
 pub const DEFAULT_PLATFORM_USDC_ADDRESS: &str =
     "0x9b1b8ff37a5fdc77141c58ca43a4800a82d6ce91cfaceb7ae7c62c7c80458299";
+
+fn sui_config_dir() -> String {
+    std::env::var("SUI_CONFIG_DIR").unwrap_or_else(|_| {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "~".to_string());
+        format!("{}/.sui/sui_config", home)
+    })
+}
 
 #[derive(Debug)]
 pub struct ZingConfig {
@@ -33,15 +40,77 @@ pub struct SuiKeystorePath {
     pub file: String,
 }
 
+/// Validates that the Sui wallet setup exists and is properly configured.
+/// Returns Ok(()) if everything looks good, or Err(help_message) with
+/// user-friendly setup instructions.
+pub fn validate_setup() -> Result<(), String> {
+    let config_dir = sui_config_dir();
+    let client_yaml_path = PathBuf::from(&config_dir).join("client.yaml");
+    let keystore_path = PathBuf::from(&config_dir).join("sui.keystore");
+
+    if !Path::new(&config_dir).exists() {
+        return Err(format_setup_error(
+            "Sui config directory not found",
+            &config_dir,
+            &client_yaml_path,
+        ));
+    }
+
+    if !client_yaml_path.exists() {
+        return Err(format_setup_error(
+            "Sui client.yaml not found",
+            &config_dir,
+            &client_yaml_path,
+        ));
+    }
+
+    let client_yaml = std::fs::read_to_string(&client_yaml_path)
+        .map_err(|e| format!("Cannot read {}: {}", client_yaml_path.display(), e))?;
+    let sui_config: SuiClientConfig = serde_yaml::from_str(&client_yaml)
+        .map_err(|e| format!("Cannot parse {}: {}", client_yaml_path.display(), e))?;
+
+    if sui_config.active_address.is_none() {
+        return Err(format!(
+            "No active address set in Sui config.\n\n\
+             Run: sui client switch --address <YOUR_ADDRESS>\n\n\
+             Diagnostic: no active_address field in {}",
+            client_yaml_path.display()
+        ));
+    }
+
+    if !keystore_path.exists() {
+        return Err(format!(
+            "Sui keystore not found.\n\n\
+             Run: sui client\n\n\
+             Diagnostic: {} not found",
+            keystore_path.display()
+        ));
+    }
+
+    Ok(())
+}
+
+fn format_setup_error(reason: &str, config_dir: &str, client_yaml_path: &Path) -> String {
+    format!(
+        "{}. Zing requires a Sui wallet configuration.\n\n\
+         Quick setup:\n\
+          1. Install Sui CLI:  https://docs.sui.io/guides/developer/getting-started/sui-install\n\
+          2. Create wallet:    sui client\n\
+          3. Fund wallet:      (at least 0.01 USDC on Sui mainnet)\n\n\
+         Then try your command again.\n\n\
+         Diagnostic: {} not found\n\
+         Config dir:  {}",
+        reason,
+        client_yaml_path.display(),
+        config_dir,
+    )
+}
+
 pub fn load_config() -> anyhow::Result<ZingConfig> {
-    let sui_config_dir = std::env::var("SUI_CONFIG_DIR")
-        .unwrap_or_else(|_| {
-            let home = std::env::var("HOME").expect("HOME must be set");
-            format!("{}/.sui/sui_config", home)
-        });
+    let config_dir = sui_config_dir();
 
     // 1. Read Sui client.yaml
-    let client_yaml_path = PathBuf::from(&sui_config_dir).join("client.yaml");
+    let client_yaml_path = PathBuf::from(&config_dir).join("client.yaml");
     let client_yaml = std::fs::read_to_string(&client_yaml_path)
         .map_err(|e| anyhow::anyhow!("Cannot read Sui config at {}: {}. Run `sui client` first.", client_yaml_path.display(), e))?;
     let sui_config: SuiClientConfig = serde_yaml::from_str(&client_yaml)?;

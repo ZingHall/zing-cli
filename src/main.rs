@@ -124,6 +124,13 @@ async fn main() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
 
+    if !matches!(cli.command, Command::Version) {
+        if let Err(msg) = config::validate_setup() {
+            eprintln!("{}", msg);
+            std::process::exit(1);
+        }
+    }
+
     match cli.command {
         Command::Version => {
             println!("zing {}", env!("CARGO_PKG_VERSION"));
