@@ -85,13 +85,7 @@ impl ZingMcpServer {
     }
 
     #[tool(
-        description = "PRIMARY SEARCH GATEWAY: Use this tool first for any general inquiry, asset check, \
-        or analytical question. \
-        QUERY OPTIMIZATION RULE: Convert the user's natural language question into a short, high-density keyword string. \
-        Strip out conversational filler words, dates, or vague outlook phrases (e.g., instead of searching \
-        'what is the possible bitcoin market bottom prediction for late 2026', search 'Bitcoin market bottom analysis'). \
-        This ensures maximum vector precision and clean lexical ranking scores. \
-        Default limit is 20."
+        description = "Search the Zing decentralized knowledge base. Provide short keyword queries (2-4 words preferred). Returns articles with relevance scores, excerpts, tags, and budget info. Default limit is 20."
     )]
     async fn zing_search(
         &self,
@@ -159,20 +153,7 @@ impl ZingMcpServer {
     }
 
     #[tool(
-        description = "SURGICAL CHUNK RETRIEVAL: Use this tool to extract precise raw text segments and metadata \
-        from specific articles or localized content spaces. \
-        QUERY OPTIMIZATION RULE: Do not use natural language sentences, questions, or broad contextual phrases. \
-        The query parameter must be a compact, 2-4 word keyword string targeting specific technical concepts, metrics, \
-        or entities (e.g., instead of 'how does the 1-3 month realized price behave during a market bottom', \
-        query '1-3m_RP market bottom'). Short, exact phrasing prevents vector dilution and guarantees \
-        the highest similarity scores against raw document chunks. \
-        RESULTS may contain truncated chunks — check the 'truncated' field on each result. \
-        When table_rows_shown < table_rows_total, code_lines_shown < code_lines_total, or \
-        prose_chars_shown < prose_chars_total, call zing_expand_chunks with those chunk_ids to get the full content. \
-        Alternatively, set expand=true to return full untruncated text in the initial response (no extra cost). \
-        Default limit is 20. \
-        article_ids: Optional; filter to specific article IDs. When set, only chunks from these articles are returned. \
-        SQL-level filter on indexed columns."
+        description = "Retrieve raw text segments from search results with per-chunk pricing. Provide short keyword queries. Returns chunks with text, scores, content_type, and truncation metadata. Set expand=true (no extra cost) to return full text instead of excerpts. Use article_ids to filter to specific articles. When truncation metadata is present, call zing_expand_chunks with those chunk_ids to retrieve full text. Default limit is 20."
     )]
     async fn zing_chunks(
         &self,
@@ -236,11 +217,7 @@ impl ZingMcpServer {
     }
 
     #[tool(
-        description = "Expand truncated text or code snippets into their full content. \
-        Use this whenever a search or chunk result contains a non-null 'truncated' field where structural metrics show missing data \
-        (e.g., when 'code_lines_total' is greater than 'code_lines_shown', 'table_rows_total' is greater than 'table_rows_shown', \
-        or 'prose_chars_total' is greater than 'prose_chars_shown'). Pass the chunk_ids directly to retrieve the complete text block. \
-        Max 20 chunk IDs per call. Avoid batching unless multiple blocks are explicitly truncated and relevant."
+        description = "Expand truncated chunks to retrieve full untruncated text. Pass chunk_ids from chunks results that have non-null truncated fields. Max 20 chunk IDs per call."
     )]
     async fn zing_expand_chunks(
         &self,
