@@ -1,11 +1,10 @@
 use std::str::FromStr;
 use std::time::Duration;
-use futures::StreamExt;
 use sui_crypto::ed25519::Ed25519PrivateKey;
 use sui_crypto::SuiSigner;
 use sui_rpc::field::FieldMask;
 use sui_rpc::field::FieldMaskUtil;
-use sui_rpc::proto::sui::rpc::v2::{ExecuteTransactionRequest, ListBalancesRequest};
+use sui_rpc::proto::sui::rpc::v2::{ExecuteTransactionRequest, GetBalanceRequest};
 use sui_sdk_types::{Address, Digest, TypeTag};
 use sui_transaction_builder::{Function, ObjectInput, TransactionBuilder};
 
@@ -21,13 +20,15 @@ pub async fn send_payment(
     sender: &Address,
     platform_address: &Address,
 ) -> anyhow::Result<String> {
-    // Pre-check: ensure address_balance has enough USDC
+    // Pre-check: ensure total balance (addr + coins) has enough USDC
     let (addr_bal, coin_bal) = get_usdc_balance(rpc_url, sender).await?;
-    if addr_bal < MIN_PAYMENT_USDC {
-        if addr_bal + coin_bal < MIN_PAYMENT_USDC {
-            anyhow::bail!("Insufficient USDC balance (need at least 0.01 USDC)");
-        }
-        consolidate_usdc_coins(rpc_url, keypair, sender).await?;
+    if addr_bal + coin_bal < MIN_PAYMENT_USDC {
+        anyhow::bail!("Insufficient USDC balance (need at least 0.01 USDC)");
+    }
+
+    // Always consolidate to avoid stale RPC cache on address_balance
+    if coin_bal > 0 {
+        consolidate_usdc_coins(rpc_url, keypair, sender, coin_bal).await?;
     }
 
     let mut client = sui_rpc::Client::new(rpc_url)
@@ -88,31 +89,27 @@ pub async fn get_usdc_balance(
     rpc_url: &str,
     address: &Address,
 ) -> anyhow::Result<(u64, u64)> {
-    let client = sui_rpc::Client::new(rpc_url)
+    let mut client = sui_rpc::Client::new(rpc_url)
         .map_err(|e| anyhow::anyhow!("Failed to create Sui RPC client: {e}"))?;
 
-    let mut request = ListBalancesRequest::default();
+    let mut request = GetBalanceRequest::default();
     request.owner = Some(address.to_string());
+    request.coin_type = Some(USDC_COIN_TYPE.to_string());
 
-    let balances: Vec<_> = client
-        .list_balances(request)
-        .collect::<Vec<_>>()
-        .await;
+    let response = client
+        .state_client()
+        .get_balance(request)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to get USDC balance: {e}"))?
+        .into_inner();
 
-    for result in &balances {
-        let balance = result
-            .as_ref()
-            .map_err(|e| anyhow::anyhow!("Failed to fetch balance: {e}"))?;
-
-        if balance.coin_type.as_deref() == Some(USDC_COIN_TYPE) {
-            return Ok((
-                balance.address_balance.unwrap_or(0),
-                balance.coin_balance.unwrap_or(0),
-            ));
-        }
+    match response.balance {
+        Some(b) => Ok((
+            b.address_balance.unwrap_or(0),
+            b.coin_balance.unwrap_or(0),
+        )),
+        None => Ok((0, 0)),
     }
-
-    Ok((0, 0))
 }
 
 /// Consolidate all owned USDC coins into address balance via coin::send_funds.
@@ -121,6 +118,7 @@ pub async fn consolidate_usdc_coins(
     rpc_url: &str,
     keypair: &Ed25519PrivateKey,
     sender: &Address,
+    coin_bal: u64,
 ) -> anyhow::Result<String> {
     let mut client = sui_rpc::Client::new(rpc_url)
         .map_err(|e| anyhow::anyhow!("Failed to create Sui RPC client: {e}"))?;
@@ -128,7 +126,7 @@ pub async fn consolidate_usdc_coins(
     let usdc_type = TypeTag::from_str(USDC_COIN_TYPE)?;
 
     let usdc_coins = client
-        .select_coins(sender, &usdc_type, 1, &[])
+        .select_coins(sender, &usdc_type, coin_bal, &[])
         .await
         .map_err(|e| anyhow::anyhow!("Failed to find USDC coins: {e}"))?;
 
