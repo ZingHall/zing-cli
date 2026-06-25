@@ -67,19 +67,10 @@ On first run, zing auto-creates its config directory:
 
 A new Ed25519 keypair is generated and the address is printed. Fund this address with at least 0.01 USDC on Sui mainnet to use paid search.
 
-### Override config directory
-
-Set `ZING_CONFIG_DIR` to use a custom path:
-
-```bash
-export ZING_CONFIG_DIR=/custom/path/zing_config
-```
-
 ### Defaults and overrides
 
 | Variable | Overrides | Default |
 |----------|-----------|---------|
-| `ZING_CONFIG_DIR` | Config directory path | `~/.zing/zing_config` |
 | `ZING_API_URL` | API base URL | `https://search.zing.services` |
 | `ZING_PLATFORM_USDC_ADDRESS` | Payment recipient | hardcoded platform address |
 | `--api` flag | API base URL | overrides env/fallback |

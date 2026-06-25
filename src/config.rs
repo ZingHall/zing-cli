@@ -7,10 +7,8 @@ pub const DEFAULT_PLATFORM_USDC_ADDRESS: &str =
     "0x9b1b8ff37a5fdc77141c58ca43a4800a82d6ce91cfaceb7ae7c62c7c80458299";
 
 fn zing_config_dir() -> String {
-    std::env::var("ZING_CONFIG_DIR").unwrap_or_else(|_| {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "~".to_string());
-        format!("{}/.zing/zing_config", home)
-    })
+    let home = std::env::var("HOME").unwrap_or_else(|_| "~".to_string());
+    format!("{}/.zing/zing_config", home)
 }
 
 #[derive(Debug)]
