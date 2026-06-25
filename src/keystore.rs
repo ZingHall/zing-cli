@@ -3,7 +3,7 @@ use sui_sdk_types::Address;
 use std::path::Path;
 use base64ct::Encoding;
 
-/// Load the Ed25519 private key and derive its address from the Sui keystore.
+/// Load the Ed25519 private key and derive its address from the zing keystore.
 ///
 /// The keystore is a JSON array of base64-encoded `flag || privkey` (33 bytes).
 /// flag 0x00 = Ed25519, remaining 32 bytes = private key.

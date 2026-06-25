@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -6,128 +6,73 @@ pub const DEFAULT_API_URL: &str = "https://search.zing.services";
 pub const DEFAULT_PLATFORM_USDC_ADDRESS: &str =
     "0x9b1b8ff37a5fdc77141c58ca43a4800a82d6ce91cfaceb7ae7c62c7c80458299";
 
-fn sui_config_dir() -> String {
-    std::env::var("SUI_CONFIG_DIR").unwrap_or_else(|_| {
+fn zing_config_dir() -> String {
+    std::env::var("ZING_CONFIG_DIR").unwrap_or_else(|_| {
         let home = std::env::var("HOME").unwrap_or_else(|_| "~".to_string());
-        format!("{}/.sui/sui_config", home)
+        format!("{}/.zing/zing_config", home)
     })
 }
 
 #[derive(Debug)]
 pub struct ZingConfig {
-    /// Sui RPC URL (mainnet)
     pub rpc_url: String,
-    /// Active Sui address (from client.yaml)
     pub active_address: sui_sdk_types::Address,
-    /// Indexbind API base URL
     pub api_base_url: String,
-    /// Platform USDC address to send payment to
     pub platform_usdc_address: sui_sdk_types::Address,
+    pub keystore_path: PathBuf,
 }
 
-/// Minimal representation of the Sui client.yaml we care about
-#[derive(Debug, Deserialize)]
-pub struct SuiClientConfig {
-    #[allow(dead_code)]
-    pub keystore: SuiKeystorePath,
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ZingClientConfig {
+    pub keystore: ZingKeystorePath,
     pub active_address: Option<String>,
+    #[serde(default)]
+    pub active_env: Option<String>,
+    #[serde(default)]
+    pub envs: Vec<ZingEnv>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct SuiKeystorePath {
-    #[allow(dead_code)]
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ZingKeystorePath {
     #[serde(rename = "File")]
     pub file: String,
 }
 
-/// Validates that the Sui wallet setup exists and is properly configured.
-/// Returns Ok(()) if everything looks good, or Err(help_message) with
-/// user-friendly setup instructions.
-pub fn validate_setup() -> Result<(), String> {
-    let config_dir = sui_config_dir();
-    let client_yaml_path = PathBuf::from(&config_dir).join("client.yaml");
-    let keystore_path = PathBuf::from(&config_dir).join("sui.keystore");
-
-    if !Path::new(&config_dir).exists() {
-        return Err(format_setup_error(
-            "Sui config directory not found",
-            &config_dir,
-            &client_yaml_path,
-        ));
-    }
-
-    if !client_yaml_path.exists() {
-        return Err(format_setup_error(
-            "Sui client.yaml not found",
-            &config_dir,
-            &client_yaml_path,
-        ));
-    }
-
-    let client_yaml = std::fs::read_to_string(&client_yaml_path)
-        .map_err(|e| format!("Cannot read {}: {}", client_yaml_path.display(), e))?;
-    let sui_config: SuiClientConfig = serde_yaml::from_str(&client_yaml)
-        .map_err(|e| format!("Cannot parse {}: {}", client_yaml_path.display(), e))?;
-
-    if sui_config.active_address.is_none() {
-        return Err(format!(
-            "No active address set in Sui config.\n\n\
-             Run: sui client switch --address <YOUR_ADDRESS>\n\n\
-             Diagnostic: no active_address field in {}",
-            client_yaml_path.display()
-        ));
-    }
-
-    if !keystore_path.exists() {
-        return Err(format!(
-            "Sui keystore not found.\n\n\
-             Run: sui client\n\n\
-             Diagnostic: {} not found",
-            keystore_path.display()
-        ));
-    }
-
-    Ok(())
-}
-
-fn format_setup_error(reason: &str, config_dir: &str, client_yaml_path: &Path) -> String {
-    format!(
-        "{}. Zing requires a Sui wallet configuration.\n\n\
-         Quick setup:\n\
-          1. Install Sui CLI:  https://docs.sui.io/guides/developer/getting-started/sui-install\n\
-          2. Create wallet:    sui client\n\
-          3. Fund wallet:      (at least 0.01 USDC on Sui mainnet)\n\n\
-         Then try your command again.\n\n\
-         Diagnostic: {} not found\n\
-         Config dir:  {}",
-        reason,
-        client_yaml_path.display(),
-        config_dir,
-    )
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ZingEnv {
+    pub alias: String,
+    pub rpc: String,
 }
 
 pub fn load_config() -> anyhow::Result<ZingConfig> {
-    let config_dir = sui_config_dir();
-
-    // 1. Read Sui client.yaml
+    let config_dir = zing_config_dir();
     let client_yaml_path = PathBuf::from(&config_dir).join("client.yaml");
+
+    if !client_yaml_path.exists() {
+        init_config(&config_dir, &client_yaml_path)?;
+    }
+
     let client_yaml = std::fs::read_to_string(&client_yaml_path)
-        .map_err(|e| anyhow::anyhow!("Cannot read Sui config at {}: {}. Run `sui client` first.", client_yaml_path.display(), e))?;
-    let sui_config: SuiClientConfig = serde_yaml::from_str(&client_yaml)?;
+        .map_err(|e| anyhow::anyhow!("Cannot read Zing config at {}: {}", client_yaml_path.display(), e))?;
+    let zing_config: ZingClientConfig = serde_yaml::from_str(&client_yaml)?;
 
-    // 2. RPC URL — mainnet
-    let rpc_url = "https://fullnode.mainnet.sui.io:443".to_string();
+    let rpc_url = zing_config
+        .active_env
+        .as_deref()
+        .and_then(|alias| zing_config.envs.iter().find(|e| e.alias == alias))
+        .map(|e| e.rpc.clone())
+        .unwrap_or_else(|| "https://fullnode.mainnet.sui.io:443".to_string());
 
-    // 3. Active address from client.yaml
-    let addr_str = sui_config.active_address
-        .ok_or_else(|| anyhow::anyhow!("No active_address set in Sui config. Run `sui client switch --address <ADDRESS>`"))?;
+    let addr_str = zing_config
+        .active_address
+        .ok_or_else(|| anyhow::anyhow!("No active_address set in Zing config at {}", client_yaml_path.display()))?;
     let active_address = sui_sdk_types::Address::from_str(&addr_str)?;
 
-    // 4. API base URL — env override or default
+    let keystore_path = PathBuf::from(&config_dir).join(&zing_config.keystore.file);
+
     let api_base_url = std::env::var("ZING_API_URL")
         .unwrap_or_else(|_| DEFAULT_API_URL.to_string());
 
-    // 5. Platform USDC address — env override or default
     let platform_usdc_addr_str = std::env::var("ZING_PLATFORM_USDC_ADDRESS")
         .unwrap_or_else(|_| DEFAULT_PLATFORM_USDC_ADDRESS.to_string());
     let platform_usdc_address = sui_sdk_types::Address::from_str(&platform_usdc_addr_str)?;
@@ -137,5 +82,53 @@ pub fn load_config() -> anyhow::Result<ZingConfig> {
         active_address,
         api_base_url,
         platform_usdc_address,
+        keystore_path,
     })
+}
+
+fn init_config(config_dir: &str, client_yaml_path: &Path) -> anyhow::Result<()> {
+    use base64ct::{Base64, Encoding};
+    use rand::RngCore;
+    use sui_crypto::ed25519::Ed25519PrivateKey;
+
+    std::fs::create_dir_all(config_dir)
+        .map_err(|e| anyhow::anyhow!("Cannot create config directory {}: {}", config_dir, e))?;
+
+    let mut key_bytes = [0u8; 32];
+    rand::rngs::OsRng.fill_bytes(&mut key_bytes);
+    let keypair = Ed25519PrivateKey::new(key_bytes);
+    let address = keypair.public_key().derive_address();
+
+    let mut raw = vec![0x00u8];
+    raw.extend_from_slice(&key_bytes);
+    let encoded = Base64::encode_string(&raw);
+    let keystore_json = serde_json::to_string_pretty(&vec![encoded])?;
+    let keystore_path = PathBuf::from(config_dir).join("zing.keystore");
+    std::fs::write(&keystore_path, keystore_json).map_err(|e| {
+        anyhow::anyhow!("Cannot write keystore to {}: {}", keystore_path.display(), e)
+    })?;
+
+    let config = ZingClientConfig {
+        keystore: ZingKeystorePath {
+            file: "zing.keystore".to_string(),
+        },
+        active_address: Some(address.to_string()),
+        active_env: Some("mainnet".to_string()),
+        envs: vec![ZingEnv {
+            alias: "mainnet".to_string(),
+            rpc: "https://fullnode.mainnet.sui.io:443".to_string(),
+        }],
+    };
+    let config_yaml = serde_yaml::to_string(&config)?;
+    std::fs::write(client_yaml_path, config_yaml).map_err(|e| {
+        anyhow::anyhow!("Cannot write config to {}: {}", client_yaml_path.display(), e)
+    })?;
+
+    eprintln!(
+        "Created new Zing wallet.\n  Address: {}\n\n\
+         Fund this address with at least 0.01 USDC on Sui mainnet to use paid search.",
+        address
+    );
+
+    Ok(())
 }

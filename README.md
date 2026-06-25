@@ -12,11 +12,7 @@ Two usage personas:
 ## Prerequisites
 
 1. **Rust toolchain** — edition 2021
-2. **Sui CLI** — [install](https://docs.sui.io/) and configure:
-   ```bash
-   sui client  # creates ~/.sui/sui_config/client.yaml
-   ```
-3. **Sui wallet** with USDC balance (≥0.01 USDC)
+2. **USDC on Sui** — at least 0.01 USDC on Sui mainnet to fund your zing wallet
 
 ---
 
@@ -56,25 +52,36 @@ zing version
 
 ## Configuration
 
-### How the CLI finds your Sui wallet
+Zing manages its own config and keypair, fully independent from Sui CLI.
 
-The CLI reads from your Sui configuration directory:
+### First run
+
+On first run, zing auto-creates its config directory:
 
 ```
-~/.sui/sui_config/
-  client.yaml     — active address (created by `sui client`)
-  sui.keystore    — Ed25519 keypair (created by `sui client`)
+~/.zing/
+  zing_config/
+    client.yaml       — active address, active env, RPC endpoints
+    zing.keystore     — Ed25519 private key (Sui keystore format)
 ```
 
-Override the directory with the `SUI_CONFIG_DIR` environment variable.
+A new Ed25519 keypair is generated and the address is printed. Fund this address with at least 0.01 USDC on Sui mainnet to use paid search.
+
+### Override config directory
+
+Set `ZING_CONFIG_DIR` to use a custom path:
+
+```bash
+export ZING_CONFIG_DIR=/custom/path/zing_config
+```
 
 ### Defaults and overrides
 
 | Variable | Overrides | Default |
 |----------|-----------|---------|
+| `ZING_CONFIG_DIR` | Config directory path | `~/.zing/zing_config` |
 | `ZING_API_URL` | API base URL | `https://search.zing.services` |
 | `ZING_PLATFORM_USDC_ADDRESS` | Payment recipient | hardcoded platform address |
-| `SUI_CONFIG_DIR` | Sui config path | `~/.sui/sui_config` |
 | `--api` flag | API base URL | overrides env/fallback |
 | `--rpc` flag | Sui fullnode URL | `https://fullnode.mainnet.sui.io:443` |
 
@@ -147,7 +154,7 @@ zing chunks "smart contracts" --json
 |------|------|-------------|
 | `--owner` | string | Filter to a specific creator's wiki |
 | `--limit` | int | Max results (default: 20, max: 50) |
-| `--expand` | bool | Return full untruncated chunk text (no excerpts) |
+| `--expand` | bool | Return full untruncated chunk text (no extra cost) |
 | `--api` | string | Override API base URL |
 | `--rpc` | string | Override Sui fullnode URL |
 | `--json` | bool | Output JSON for agent consumption |
@@ -177,7 +184,7 @@ zing expand 94 1603 --json
 ### `zing client` — Wallet utilities
 
 ```bash
-# Show the active Sui address
+# Show the active zing address
 zing client active-address
 
 # Show SUI and USDC balances
@@ -447,8 +454,8 @@ zing_chunks → chunk.truncated is non-null → zing_expand_chunks(chunk_ids) �
 
 Each request costs a flat search/infrastructure fee (default 0.0005 USDC for ≤20 results, scales linearly for larger limits) plus per-result/per-chunk token fees:
 
-1. **Send USDC** — the CLI sends USDC via `0x2::balance::send_funds<USDC>` to the platform address. If balance is insufficient, it auto-consolidates USDC coins first.
-2. **Sign message** — BCS-encodes `ApiAccessMessage {q, wiki, transaction_digest, timestamp, expand?, article_ids?}` and signs as a `PersonalMessage` with the Ed25519 keypair from `sui.keystore`.
+1. **Send USDC** — the CLI sends USDC via `0x2::balance::send_funds<USDC>` to the platform address. USDC coins are always consolidated into address balance before payment to avoid stale RPC cache issues.
+2. **Sign message** — BCS-encodes `ApiAccessMessage {q, wiki, transaction_digest, timestamp, expand?, article_ids?}` and signs as a `PersonalMessage` with the Ed25519 keypair from `zing.keystore`.
 3. **Submit** — sends the signed request to the indexbind API. The server verifies the on-chain payment, runs the search/chunk pipeline, and returns results up to the paid budget.
 
 The budget breakdown is shown in all output:
@@ -468,10 +475,10 @@ zing-cli/
   src/
     main.rs         — CLI entry: clap subcommands, output formatting
     lib.rs          — module declarations
-    config.rs       — reads Sui client.yaml + env vars
+    config.rs       — loads config, auto-creates keypair on first run
     error.rs        — typed error codes
-    keystore.rs     — loads Ed25519 keypair from sui.keystore
-    sui.rs          — USDC balance check + payment PTB builder
+    keystore.rs     — loads Ed25519 keypair from zing.keystore
+    sui.rs          — USDC balance, coin consolidation, payment PTB
     api.rs          — ApiAccessMessage signing + HTTP calls
     models.rs       — request/response types (serde)
     mcp.rs          — MCP server (zing_search, zing_chunks, zing_expand_chunks tools)

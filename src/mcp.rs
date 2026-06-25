@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{CallToolResult, ErrorData, ServerInfo};
@@ -62,10 +60,7 @@ impl ZingMcpServer {
         let sender = cfg.active_address;
         let platform_usdc_address = cfg.platform_usdc_address;
 
-        let sui_config_dir = std::env::var("SUI_CONFIG_DIR")
-            .unwrap_or_else(|_| format!("{}/.sui/sui_config", std::env::var("HOME").unwrap()));
-        let keystore_path = Path::new(&sui_config_dir).join("sui.keystore");
-        let keypair = keystore::load_keypair(&keystore_path, &sender)?;
+        let keypair = keystore::load_keypair(&cfg.keystore_path, &sender)?;
 
         Ok(Self {
             rpc_url,

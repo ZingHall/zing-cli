@@ -1,5 +1,4 @@
 use clap::{Parser, Subcommand};
-use std::path::Path;
 
 mod api;
 mod config;
@@ -124,13 +123,6 @@ async fn main() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
 
-    if !matches!(cli.command, Command::Version) {
-        if let Err(msg) = config::validate_setup() {
-            eprintln!("{}", msg);
-            std::process::exit(1);
-        }
-    }
-
     match cli.command {
         Command::Version => {
             println!("zing {}", env!("CARGO_PKG_VERSION"));
@@ -173,10 +165,7 @@ async fn run_expand(
     // Convert Vec<u64> to Vec<i64> (BCS expects i64 in ExpandAccessMessage)
     let chunk_ids_i64: Vec<i64> = chunk_ids.iter().map(|&id| id as i64).collect();
 
-    let sui_config_dir = std::env::var("SUI_CONFIG_DIR")
-        .unwrap_or_else(|_| format!("{}/.sui/sui_config", std::env::var("HOME").unwrap()));
-    let keystore_path = Path::new(&sui_config_dir).join("sui.keystore");
-    let keypair = keystore::load_keypair(&keystore_path, &cfg.active_address)?;
+    let keypair = keystore::load_keypair(&cfg.keystore_path, &cfg.active_address)?;
 
     let response = api::expand_chunks(
         &rpc_url,
@@ -296,10 +285,7 @@ async fn run_search(
     let rpc_url = rpc_override.unwrap_or(cfg.rpc_url);
     let api_base_url = api_override.unwrap_or(cfg.api_base_url);
 
-    let sui_config_dir = std::env::var("SUI_CONFIG_DIR")
-        .unwrap_or_else(|_| format!("{}/.sui/sui_config", std::env::var("HOME").unwrap()));
-    let keystore_path = Path::new(&sui_config_dir).join("sui.keystore");
-    let keypair = keystore::load_keypair(&keystore_path, &cfg.active_address)?;
+    let keypair = keystore::load_keypair(&cfg.keystore_path, &cfg.active_address)?;
 
     let wiki = owner.as_deref().unwrap_or("global").to_string();
     let owner_param = if owner.is_some() { owner.as_deref() } else { None };
@@ -392,10 +378,7 @@ async fn run_chunks(
     let rpc_url = rpc_override.unwrap_or(cfg.rpc_url);
     let api_base_url = api_override.unwrap_or(cfg.api_base_url);
 
-    let sui_config_dir = std::env::var("SUI_CONFIG_DIR")
-        .unwrap_or_else(|_| format!("{}/.sui/sui_config", std::env::var("HOME").unwrap()));
-    let keystore_path = Path::new(&sui_config_dir).join("sui.keystore");
-    let keypair = keystore::load_keypair(&keystore_path, &cfg.active_address)?;
+    let keypair = keystore::load_keypair(&cfg.keystore_path, &cfg.active_address)?;
 
     let wiki = owner.as_deref().unwrap_or("global").to_string();
     let owner_param = if owner.is_some() { owner.as_deref() } else { None };
